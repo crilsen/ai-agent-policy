@@ -7,6 +7,7 @@
 [[ -n "${TARGETS_LOADED:-}" ]] && return 0
 TARGETS_LOADED=1
 
+# shellcheck disable=SC2034  # consumed by the scripts that source this file
 TARGETS=(
   "opencode|dist/opencode/AGENTS.md|$HOME/.config/opencode/AGENTS.md"
   "claude|dist/claude/CLAUDE.md|$HOME/.claude/CLAUDE.md"

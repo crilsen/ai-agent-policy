@@ -38,7 +38,6 @@ case "$MODE" in
     mkdir -p "$DIST"/{opencode,claude,codex,gemini,cursor/rules}
 
     compose "$DIST/agents.md" yes
-    cp "$DIST/agents.md" "$ROOT_DIR/AGENTS.md"
     cp "$DIST/agents.md" "$DIST/opencode/AGENTS.md"
     cp "$DIST/agents.md" "$DIST/claude/CLAUDE.md"
     cp "$DIST/agents.md" "$DIST/codex/AGENTS.md"
