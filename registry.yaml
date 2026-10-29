@@ -1,0 +1,54 @@
+version: 1
+
+# Central catalog. Read this file, then load only entries whose `when` matches.
+# visibility: public  -> ships in the published template
+#             private -> stripped by scripts/publish.sh
+#
+# kind: policy | rule | workflow | skill
+
+always:
+  - path: base/policy/guardrails.md
+    visibility: public
+  - path: base/policy/git.md
+    visibility: public
+  - path: base/policy/deploy.md
+    visibility: public
+  - path: base/policy/language.md
+    visibility: public
+
+entries:
+  - id: vercel
+    kind: rule
+    path: rules/vercel.md
+    when: "vercel.json, a .vercel directory, or a project deployed on Vercel"
+    visibility: public
+
+  - id: terraform
+    kind: rule
+    path: rules/terraform.md
+    when: "edits to *.tf, *.tfvars, infra/**, or any terraform state operation"
+    visibility: public
+
+  - id: feature
+    kind: workflow
+    path: workflows/feature.md
+    when: "implementing or changing code, configuration, or infrastructure"
+    visibility: public
+
+  - id: review
+    kind: workflow
+    path: workflows/review.md
+    when: "user asks for a review, or before opening a PR for review"
+    visibility: public
+
+  - id: new-project
+    kind: workflow
+    path: workflows/new-project.md
+    when: "starting a project that has no context layer yet"
+    visibility: public
+
+  - id: switch-agent
+    kind: workflow
+    path: workflows/switch-agent.md
+    when: "handing work to another agent, model, provider, or machine"
+    visibility: public

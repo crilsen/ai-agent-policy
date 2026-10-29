@@ -1,0 +1,60 @@
+#!/usr/bin/env bash
+# Verify the install is coherent: links correct, generated files current,
+# registry entries present, no placeholder left behind.
+set -uo pipefail
+
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+fail=0
+ok()   { echo "ok    $*"; }
+warn() { echo "warn  $*"; }
+bad()  { echo "FAIL  $*"; fail=1; }
+
+# 1. Generated files current
+TMP="$(mktemp -d)"
+trap 'rm -rf "$TMP"' EXIT
+cp -R "$ROOT_DIR" "$TMP/repo"
+( cd "$TMP/repo" && rm -rf dist AGENTS.md && ./scripts/build.sh >/dev/null )
+for f in dist/agents.md dist/opencode/AGENTS.md dist/claude/CLAUDE.md \
+         dist/codex/AGENTS.md dist/gemini/GEMINI.md dist/cursor/rules/agent-policy.mdc; do
+  if cmp -s "$TMP/repo/$f" "$ROOT_DIR/$f"; then ok "current $f"; else bad "stale   $f (run scripts/build.sh)"; fi
+done
+if cmp -s "$TMP/repo/AGENTS.md" "$ROOT_DIR/AGENTS.md"; then ok "current AGENTS.md"; else bad "stale   AGENTS.md"; fi
+
+# 2. Installed links
+check_link() {
+  local dest="$1"
+  if [[ ! -e "$dest" ]]; then bad "missing $dest"; return; fi
+  if [[ -L "$dest" ]]; then
+    ok "link    $dest"
+  else
+    warn "regular file $dest (not managed by install.sh)"
+  fi
+}
+check_link "$HOME/.config/opencode/AGENTS.md"
+check_link "$HOME/.claude/CLAUDE.md"
+check_link "$HOME/.codex/AGENTS.md"
+check_link "$HOME/.gemini/GEMINI.md"
+check_link "$HOME/.cursor/rules/agent-policy.mdc"
+
+# 3. Registry integrity
+missing=0
+while read -r p; do
+  [[ -z "$p" ]] && continue
+  [[ -f "$ROOT_DIR/$p" ]] || { bad "registry path missing: $p"; missing=1; }
+done < <(grep -E '^\s+- path: ' "$ROOT_DIR/registry.yaml" | awk '{print $3}')
+[[ "$missing" == 0 ]] && ok "registry paths resolve"
+
+# 4. No unresolved placeholder in the personal build
+#    dist/public/AGENTS.md is expected to keep the placeholder: it is the template.
+if grep -rn "__CENTRAL_DIR__" \
+     "$ROOT_DIR/AGENTS.md" \
+     "$ROOT_DIR/dist/agents.md" \
+     "$ROOT_DIR/dist/opencode" "$ROOT_DIR/dist/claude" "$ROOT_DIR/dist/codex" \
+     "$ROOT_DIR/dist/gemini" "$ROOT_DIR/dist/cursor" >/dev/null 2>&1; then
+  bad "unresolved __CENTRAL_DIR__ in personal output"
+else
+  ok "no placeholders in personal output"
+fi
+
+echo
+[[ "$fail" == 0 ]] && echo "doctor: clean" || { echo "doctor: problems found"; exit 1; }
