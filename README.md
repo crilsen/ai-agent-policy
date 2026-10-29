@@ -26,14 +26,15 @@ instead of loading everything.
 Precedence: **hard safety > explicit human approval > project context > contract**.
 A project may tighten these rules, never loosen them.
 
-## Private source, public template
+## Optional private source, public template
 
-`base/` is generic and publishable. `overlay/` is yours: machine paths, account
-profiles, personal preferences. `scripts/build.sh` composes them into one file.
-`scripts/publish.sh` exports `base/` alone, strips registry entries marked
-`visibility: private`, and fails if any deny-listed string survives.
+`base/` is generic and publishable. An optional `overlay/` holds what is yours:
+machine paths, account profiles, personal preferences. `scripts/build.sh` composes
+them into one file. `scripts/publish.sh` ships only what `registry.yaml` marks
+`visibility: public`, drops the rest, and fails if a deny-listed string survives.
 
-So: iterate privately, publish what has proven itself.
+So: iterate privately, publish what has proven itself. A rule that is not declared
+public does not exist for the published repository.
 
 ## Usage
 
@@ -45,6 +46,23 @@ So: iterate privately, publish what has proven itself.
 ./scripts/publish.sh            # stage the public export, review the diff
 ./scripts/publish.sh --push     # publish
 ```
+
+### First run on a machine that already has agent instructions
+
+`install.sh --apply` refuses to run when a global instruction file already exists.
+It lists the files, then asks for a decision:
+
+```bash
+./scripts/import.sh --apply               # copy them into overlay/imported/
+./scripts/install.sh --apply --import     # import, then link
+./scripts/install.sh --apply --discard    # replace, keeping <file>.bak
+```
+
+Imported files are inert: not linked, not loaded, not published. They are raw
+material to review, keep what is still true, and promote into `base/` or `overlay/`.
+
+Never import silently, and never import "just in case": an imported rule stays a
+rule in the reader's mind even if the file is inert. Ask first, then act.
 
 New project:
 

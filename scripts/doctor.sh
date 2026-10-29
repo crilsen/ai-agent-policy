@@ -4,6 +4,8 @@
 set -uo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+# shellcheck source=lib/targets.sh
+source "$ROOT_DIR/scripts/lib/targets.sh"
 fail=0
 ok()   { echo "ok    $*"; }
 warn() { echo "warn  $*"; }
@@ -21,20 +23,16 @@ done
 if cmp -s "$TMP/repo/AGENTS.md" "$ROOT_DIR/AGENTS.md"; then ok "current AGENTS.md"; else bad "stale   AGENTS.md"; fi
 
 # 2. Installed links
-check_link() {
-  local dest="$1"
-  if [[ ! -e "$dest" ]]; then bad "missing $dest"; return; fi
-  if [[ -L "$dest" ]]; then
-    ok "link    $dest"
+for row in "${TARGETS[@]}"; do
+  IFS='|' read -r tool _src dest <<<"$row"
+  if [[ ! -e "$dest" ]]; then
+    bad "missing $tool  $dest"
+  elif [[ -L "$dest" ]]; then
+    ok "link    $tool -> $dest"
   else
-    warn "regular file $dest (not managed by install.sh)"
+    warn "regular file $tool  $dest (not managed by install.sh)"
   fi
-}
-check_link "$HOME/.config/opencode/AGENTS.md"
-check_link "$HOME/.claude/CLAUDE.md"
-check_link "$HOME/.codex/AGENTS.md"
-check_link "$HOME/.gemini/GEMINI.md"
-check_link "$HOME/.cursor/rules/agent-policy.mdc"
+done
 
 # 3. Registry integrity
 missing=0

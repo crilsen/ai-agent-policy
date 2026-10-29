@@ -1,24 +1,83 @@
 #!/usr/bin/env bash
 # Link the generated contract into each harness's global location.
+#
 # Dry run by default. Pass --apply to write.
+#
+# On a machine that already has agent instructions, this stops and asks. It will
+# not replace existing files until you choose to import or discard them.
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+# shellcheck source=lib/targets.sh
+source "$ROOT_DIR/scripts/lib/targets.sh"
+
 APPLY="no"
-[[ "${1:-}" == "--apply" ]] && APPLY="yes"
+MODE=""
+
+usage() {
+  cat <<'EOF'
+usage: install.sh [--apply] [--import | --discard]
+
+  (no flags)   dry run: show what would happen
+  --apply      write the symlinks
+  --import     first copy existing instructions into overlay/imported/, then link
+  --discard    replace existing instructions, keeping <file>.bak alongside
+EOF
+}
+
+for arg in "$@"; do
+  case "$arg" in
+    --apply) APPLY="yes" ;;
+    --import) MODE="import" ;;
+    --discard) MODE="discard" ;;
+    -h|--help) usage; exit 0 ;;
+    *) echo "unknown option: $arg" >&2; usage >&2; exit 2 ;;
+  esac
+done
 
 [[ -f "$ROOT_DIR/dist/agents.md" ]] || "$ROOT_DIR/scripts/build.sh"
 
-# tool | generated file | global destination
-MAP=(
-  "opencode|dist/opencode/AGENTS.md|$HOME/.config/opencode/AGENTS.md"
-  "claude|dist/claude/CLAUDE.md|$HOME/.claude/CLAUDE.md"
-  "codex|dist/codex/AGENTS.md|$HOME/.codex/AGENTS.md"
-  "gemini|dist/gemini/GEMINI.md|$HOME/.gemini/GEMINI.md"
-  "cursor|dist/cursor/rules/agent-policy.mdc|$HOME/.cursor/rules/agent-policy.mdc"
-)
+# ---- detect existing, unmanaged instructions --------------------------------
+CONFLICTS=()
+for row in "${TARGETS[@]}"; do
+  IFS='|' read -r tool src dest <<<"$row"
+  [[ -e "$dest" || -L "$dest" ]] || continue
+  [[ -L "$dest" && "$(readlink "$dest")" == "$ROOT_DIR/$src" ]] && continue
+  CONFLICTS+=("$tool|$dest")
+done
 
-for row in "${MAP[@]}"; do
+if [[ "${#CONFLICTS[@]}" -gt 0 && -z "$MODE" ]]; then
+  cat <<EOF
+This machine already has agent instructions at the global locations.
+
+EOF
+  for row in "${CONFLICTS[@]}"; do
+    IFS='|' read -r tool dest <<<"$row"
+    printf '  %-9s %s\n' "$tool" "$dest"
+  done
+  cat <<EOF
+
+Linking would replace them. Choose one, then re-run:
+
+  --import    copy their content into overlay/imported/ first, then link
+  --discard   replace them, keeping a .bak next to each original
+
+Nothing has been changed.
+EOF
+  exit 3
+fi
+
+if [[ "${#CONFLICTS[@]}" -gt 0 && "$MODE" == "import" ]]; then
+  if [[ "$APPLY" == "yes" ]]; then
+    "$ROOT_DIR/scripts/import.sh" --apply
+  else
+    "$ROOT_DIR/scripts/import.sh"
+  fi
+  echo
+fi
+
+# ---- link ------------------------------------------------------------------
+for row in "${TARGETS[@]}"; do
   IFS='|' read -r tool src dest <<<"$row"
   mkdir -p "$(dirname "$dest")"
 
@@ -29,16 +88,12 @@ for row in "${MAP[@]}"; do
 
   if [[ -e "$dest" || -L "$dest" ]]; then
     echo "replace $tool  $dest (backup: $dest.bak)"
-    if [[ "$APPLY" == "yes" ]]; then
-      cp -P "$dest" "$dest.bak"
-    fi
+    [[ "$APPLY" == "yes" ]] && cp -P "$dest" "$dest.bak"
   else
     echo "create  $tool  $dest"
   fi
 
-  if [[ "$APPLY" == "yes" ]]; then
-    ln -sfn "$ROOT_DIR/$src" "$dest"
-  fi
+  [[ "$APPLY" == "yes" ]] && ln -sfn "$ROOT_DIR/$src" "$dest"
 done
 
 if [[ "$APPLY" != "yes" ]]; then
