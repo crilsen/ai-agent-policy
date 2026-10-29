@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Link the generated contract into each harness's global location.
+# Link (or copy, on Windows) the generated contract into each harness location.
 #
 # Dry run by default. Pass --apply to write.
 #
@@ -8,6 +8,8 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+# shellcheck source=lib/platform.sh
+source "$ROOT_DIR/scripts/lib/platform.sh"
 # shellcheck source=lib/targets.sh
 source "$ROOT_DIR/scripts/lib/targets.sh"
 
@@ -19,9 +21,12 @@ usage() {
 usage: install.sh [--apply] [--import | --discard]
 
   (no flags)   dry run: show what would happen
-  --apply      write the symlinks
-  --import     first copy existing instructions into overlay/imported/, then link
+  --apply      write the links or copies
+  --import     first copy existing instructions into overlay/imported/, then install
   --discard    replace existing instructions, keeping <file>.bak alongside
+
+environment:
+  AGENT_POLICY_OS   override detection: macos | linux | wsl | windows
 EOF
 }
 
@@ -37,12 +42,21 @@ done
 
 [[ -f "$ROOT_DIR/dist/agents.md" ]] || "$ROOT_DIR/scripts/build.sh"
 
-# ---- detect existing, unmanaged instructions --------------------------------
+echo "platform: $OS ($LINK_MODE mode)"
+platform_note
+echo
+
+# ---- classify each destination ---------------------------------------------
 CONFLICTS=()
 for row in "${TARGETS[@]}"; do
   IFS='|' read -r tool src dest <<<"$row"
   [[ -e "$dest" || -L "$dest" ]] || continue
-  [[ -L "$dest" && "$(readlink "$dest")" == "$ROOT_DIR/$src" ]] && continue
+
+  if [[ "$LINK_MODE" == "symlink" ]]; then
+    [[ -L "$dest" && "$(readlink "$dest")" == "$ROOT_DIR/$src" ]] && continue
+  else
+    is_managed "$dest" && continue
+  fi
   CONFLICTS+=("$tool|$dest")
 done
 
@@ -57,9 +71,9 @@ EOF
   done
   cat <<EOF
 
-Linking would replace them. Choose one, then re-run:
+Installing would replace them. Choose one, then re-run:
 
-  --import    copy their content into overlay/imported/ first, then link
+  --import    copy their content into overlay/imported/ first, then install
   --discard   replace them, keeping a .bak next to each original
 
 Nothing has been changed.
@@ -76,12 +90,19 @@ if [[ "${#CONFLICTS[@]}" -gt 0 && "$MODE" == "import" ]]; then
   echo
 fi
 
-# ---- link ------------------------------------------------------------------
+# ---- install ---------------------------------------------------------------
 for row in "${TARGETS[@]}"; do
   IFS='|' read -r tool src dest <<<"$row"
   mkdir -p "$(dirname "$dest")"
 
-  if [[ -L "$dest" && "$(readlink "$dest")" == "$ROOT_DIR/$src" ]]; then
+  managed="no"
+  if [[ "$LINK_MODE" == "symlink" ]]; then
+    [[ -L "$dest" && "$(readlink "$dest")" == "$ROOT_DIR/$src" ]] && managed="yes"
+  else
+    is_managed "$dest" && managed="yes"
+  fi
+
+  if [[ "$managed" == "yes" ]]; then
     echo "ok      $tool -> $dest"
     continue
   fi
@@ -93,7 +114,13 @@ for row in "${TARGETS[@]}"; do
     echo "create  $tool  $dest"
   fi
 
-  [[ "$APPLY" == "yes" ]] && ln -sfn "$ROOT_DIR/$src" "$dest"
+  if [[ "$APPLY" == "yes" ]]; then
+    if [[ "$LINK_MODE" == "symlink" ]]; then
+      ln -sfn "$ROOT_DIR/$src" "$dest"
+    else
+      cp -f "$ROOT_DIR/$src" "$dest"
+    fi
+  fi
 done
 
 if [[ "$APPLY" != "yes" ]]; then

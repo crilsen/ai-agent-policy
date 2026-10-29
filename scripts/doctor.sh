@@ -4,18 +4,24 @@
 set -uo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+# shellcheck source=lib/platform.sh
+source "$ROOT_DIR/scripts/lib/platform.sh"
 # shellcheck source=lib/targets.sh
 source "$ROOT_DIR/scripts/lib/targets.sh"
 fail=0
 ok()   { echo "ok    $*"; }
 warn() { echo "warn  $*"; }
 bad()  { echo "FAIL  $*"; fail=1; }
+ok "platform: $OS ($LINK_MODE mode)"
 
 # 1. Generated files current
+# Rebuild with the path recorded in dist/, so the comparison does not depend on
+# the HOME the original build ran under.
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
 cp -R "$ROOT_DIR" "$TMP/repo"
-( cd "$TMP/repo" && rm -rf dist AGENTS.md && ./scripts/build.sh >/dev/null )
+RECORDED="$(sed -n 's/^Central context: `\(.*\)`$/\1/p' "$ROOT_DIR/dist/agents.md" 2>/dev/null | head -1)"
+( cd "$TMP/repo" && rm -rf dist AGENTS.md && CENTRAL_DIR="$RECORDED" ./scripts/build.sh >/dev/null )
 if [[ -f "$ROOT_DIR/dist/agents.md" ]]; then
   for f in dist/agents.md dist/opencode/AGENTS.md dist/claude/CLAUDE.md \
            dist/codex/AGENTS.md dist/gemini/GEMINI.md dist/cursor/rules/agent-policy.mdc; do
@@ -38,20 +44,31 @@ else
   warn "no .ai/ context and no contract at the root"
 fi
 
-# 2. Installed links (only meaningful for the repository that installed them)
+# 2. Installed targets (only meaningful for the repository that installed them)
 if [[ -d "$ROOT_DIR/.ai" ]]; then
   for row in "${TARGETS[@]}"; do
-    IFS='|' read -r tool _src dest <<<"$row"
-    if [[ ! -e "$dest" ]]; then
+    IFS='|' read -r tool src dest <<<"$row"
+    if [[ ! -e "$dest" && ! -L "$dest" ]]; then
       bad "missing $tool  $dest"
-    elif [[ -L "$dest" ]]; then
-      ok "link    $tool -> $dest"
+    elif [[ "$LINK_MODE" == "symlink" ]]; then
+      if [[ -L "$dest" ]]; then
+        ok "link    $tool -> $dest"
+      else
+        warn "regular file $tool  $dest (not managed by install.sh)"
+      fi
     else
-      warn "regular file $tool  $dest (not managed by install.sh)"
+      # Copy mode: the marker and an exact match are the only proof.
+      if ! is_managed "$dest"; then
+        warn "foreign file $tool  $dest (not installed by this repository)"
+      elif cmp -s "$ROOT_DIR/$src" "$dest"; then
+        ok "copy    $tool -> $dest"
+      else
+        bad "stale   copy $tool  $dest (re-run install.sh --apply)"
+      fi
     fi
   done
 else
-  warn "template repository: global links belong to the dev repository"
+  warn "template repository: global targets belong to the dev repository"
 fi
 
 # 3. Registry integrity

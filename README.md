@@ -47,6 +47,31 @@ public does not exist for the published repository.
 ./scripts/publish.sh --push     # publish
 ```
 
+## Platforms
+
+| Platform | Detection | Install mode |
+| --- | --- | --- |
+| macOS | `uname -s` = Darwin | symlink |
+| Linux / Ubuntu | `uname -s` = Linux | symlink |
+| WSL | Linux with `WSL_DISTRO_NAME` or Microsoft kernel | symlink |
+| Windows (Git Bash / MSYS) | `uname -s` = MINGW*/MSYS* | copy |
+
+Windows symlinks need Developer Mode or elevation, so the installer copies instead.
+In copy mode, re-run `install.sh --apply` after every `build.sh`; `doctor.sh` reports
+outdated copies. The generated marker identifies files this repository owns.
+
+WSL installs only reach tools running inside WSL. Windows-native tools need a second
+run from Git Bash.
+
+Override detection to exercise another branch, including on macOS:
+
+```bash
+AGENT_POLICY_OS=windows ./scripts/install.sh
+```
+
+`rsync` is used when available and replaced by a clean folder swap when it is not,
+so minimal Ubuntu images work.
+
 ### First run on a machine that already has agent instructions
 
 `install.sh --apply` refuses to run when a global instruction file already exists.

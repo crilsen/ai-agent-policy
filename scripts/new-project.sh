@@ -4,6 +4,8 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+# shellcheck source=lib/platform.sh
+source "$ROOT_DIR/scripts/lib/platform.sh"
 [[ -f "$ROOT_DIR/overlay/config.sh" ]] && source "$ROOT_DIR/overlay/config.sh"
 CENTRAL_DIR="${CENTRAL_DIR:-$ROOT_DIR}"
 RELAY_PATH="${RELAY_PATH:-}"
@@ -23,7 +25,7 @@ if [[ -z "$RELAY_PATH" || ! -d "$RELAY_PATH" ]]; then
 fi
 
 # Copy the project context template, without its git history.
-rsync -a --exclude '.git/' "$RELAY_PATH/" "$TARGET/"
+mirror "$RELAY_PATH" "$TARGET"
 
 # Point the project at the central policy before anything else.
 NOTICE="> Global policy: \`AGENTS.md\` in \`${CENTRAL_DIR}\`. Read it before this file."

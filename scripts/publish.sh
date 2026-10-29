@@ -11,6 +11,8 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 source "$ROOT_DIR/overlay/config.sh" 2>/dev/null || true
+# shellcheck source=lib/platform.sh
+source "$ROOT_DIR/scripts/lib/platform.sh"
 DENY_PATTERNS=("${DENY_PATTERNS[@]:-}")
 : "${PUBLIC_REPO:=$HOME/Projects/ai-agent-policy}"
 DO_PUSH="no"
@@ -105,8 +107,8 @@ if [[ ! -d "$PUBLIC_REPO/.git" ]]; then
   exit 1
 fi
 
-rsync -a --delete --exclude '.git/' "$STAGE/" "$PUBLIC_REPO/"
-echo "shipped: $shipped registry paths, deny-list clean"
+mirror "$STAGE" "$PUBLIC_REPO"
+echo "shipped: $shipped registry paths, deny-list clean ($OS)"
 echo "synced:  $PUBLIC_REPO"
 git -C "$PUBLIC_REPO" status --short
 
