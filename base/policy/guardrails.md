@@ -7,12 +7,16 @@ Loaded with the contract on every session.
 
 - Read, search, and understand any repository.
 - Scoped, reversible edits tied to the task.
-- Formatters, linters, tests, type checks, and safe dry runs.
-- `plan`, `diff`, `--dry-run`, and read-only cloud calls.
+- Formatters, linters, tests, type checks, and local dry runs that contact no
+  provider.
+- Local `plan`, `diff`, and `--dry-run`.
 - Updating the project's context layer.
 
 ## Denied until approved
 
+- Any invasive action before both authorizations in `authorization.md`.
+- External reads — cloud APIs, S3, databases, remote logs, secret stores,
+  internal services — before their scope is confirmed.
 - Destructive or irreversible operations.
 - Any production or infrastructure mutation.
 - Credential, secret, IAM, or billing changes.
@@ -24,6 +28,7 @@ Loaded with the contract on every session.
 When a guardrail blocks a step that looks necessary, stop and report: what you
 wanted to do, why, the blast radius, and a safer alternative. Never route around
 a guardrail silently, and never split a denied action into smaller allowed ones.
+A read confirmation is not approval to write.
 
 ## Enforcement levels
 

@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+- Policy: `base/policy/authorization.md`. Invasive actions need double
+  authorization (plan then execution); external reads need scope confirmation.
+- Contract and guardrails aligned with the new gates.
+
 ## 0.1.0
 
 - Initial split: `base/` (publishable) + `overlay/` (private).

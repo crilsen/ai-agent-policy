@@ -26,8 +26,16 @@ When two rules conflict, the higher layer wins. Silence is not approval.
 - Delete data, drop schemas, or run irreversible migrations.
 - Send repository content or logs to external services.
 
-Approval is per action, never blanket. `plan`, `diff`, and read-only inspection
-are always allowed.
+Approval is per action, never blanket. Local `plan`, `diff`, and read-only
+inspection that stays inside the working copy are always allowed. External reads
+and every invasive action follow the authorization gates below.
+
+## Authorization
+
+An invasive action — create, edit, or delete any resource, on any provider — needs
+two separate human approvals: one for the plan, one immediately before execution.
+An external read needs one confirmation of scope. Both are defined in
+`base/policy/authorization.md`; load it with this contract.
 
 ## Deploys
 

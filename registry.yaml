@@ -9,6 +9,8 @@ version: 1
 always:
   - path: base/policy/guardrails.md
     visibility: public
+  - path: base/policy/authorization.md
+    visibility: public
   - path: base/policy/git.md
     visibility: public
   - path: base/policy/deploy.md
